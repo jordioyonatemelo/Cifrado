@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cifrador AES-256</title>
+<style>
+:root{--bg:#eef1f4;--card:#fff;--ink:#14202b;--mute:#5d6b78;--line:#d3dae1;--acc:#0f6e7a;--acc-ink:#fff;--out:#e3eaee;--bad:#b3261e;--ok:#1b7a43;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1519;--card:#16212a;--ink:#e8eef2;--mute:#8d9ca8;--line:#26343f;--acc:#5cc8d4;--acc-ink:#05252a;--out:#0b1115;--bad:#ff8a80;--ok:#6fdc9a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0e1519;--card:#16212a;--ink:#e8eef2;--mute:#8d9ca8;--line:#26343f;--acc:#5cc8d4;--acc-ink:#05252a;--out:#0b1115;--bad:#ff8a80;--ok:#6fdc9a;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:480px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:1.5rem;margin:4px 0 2px;letter-spacing:-.01em}
+h1 small{font-size:.85rem;font-weight:400;color:var(--mute);letter-spacing:0;white-space:nowrap}
+.sub{color:var(--mute);margin:0 0 18px;font-size:.9rem}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px;gap:4px;margin-bottom:16px}
+.seg button{border:0;background:none;color:var(--mute);font:inherit;font-weight:600;padding:12px;border-radius:10px;cursor:pointer}
+.seg button[aria-selected="true"]{background:var(--acc);color:var(--acc-ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+label{display:block;font-weight:600;font-size:.9rem;margin:0 0 6px}
+textarea,input{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
+textarea{min-height:120px;resize:vertical}
+textarea:focus,input:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.row{display:flex;gap:8px}.row input{flex:1}
+.field{margin-bottom:14px}
+.ghost{border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit;border-radius:10px;padding:0 14px;cursor:pointer}
+.meter{height:4px;border-radius:2px;background:var(--line);margin-top:8px;overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--bad);transition:width .2s,background .2s}
+.hint{font-size:.8rem;color:var(--mute);margin-top:4px;min-height:1.2em}
+.go{width:100%;border:0;background:var(--acc);color:var(--acc-ink);font:inherit;font-weight:700;font-size:1.05rem;padding:15px;border-radius:12px;cursor:pointer}
+.go:disabled{opacity:.6}
+#res{margin-top:16px;display:none}
+.out{font:.85rem/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--out);border:1px solid var(--line);border-radius:10px;padding:12px;word-break:break-all;white-space:pre-wrap;max-height:260px;overflow:auto}
+.bar{display:flex;gap:8px;margin-top:10px}.bar button{flex:1;padding:12px}
+.msg{margin:0 0 8px;font-weight:600}.msg.err{color:var(--bad)}.msg.ok{color:var(--ok)}
+.foot{color:var(--mute);font-size:.78rem;margin-top:18px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Cifrador AES-256 <small>© J. Oyonate</small></h1>
+  <p class="sub">Todo ocurre en tu dispositivo. Nada se envía a ningún servidor.</p>
+
+  <div class="seg" role="tablist">
+    <button role="tab" id="tE" aria-selected="true">Cifrar</button>
+    <button role="tab" id="tD" aria-selected="false">Descifrar</button>
+  </div>
+
+  <div class="card">
+    <div class="field">
+      <label for="inp" id="lblIn">Texto a cifrar</label>
+      <textarea id="inp" placeholder="Escribe o pega el texto aquí" autocapitalize="off" spellcheck="false"></textarea>
+    </div>
+    <div class="field">
+      <label for="pw" id="lblPw">Clave de cifrado</label>
+      <div class="row">
+        <input id="pw" type="password" autocomplete="off" placeholder="Mínimo 8 caracteres">
+        <button class="ghost" id="eye" type="button" aria-label="Mostrar contraseña">Ver</button>
+      </div>
+      <div class="meter" id="mt"><i></i></div>
+      <div class="hint" id="hint"></div>
+    </div>
+    <div class="field" id="f2">
+      <label for="pw2">Repite la clave de cifrado</label>
+      <div class="row">
+        <input id="pw2" type="password" autocomplete="off" placeholder="Escríbela otra vez">
+        <button class="ghost" id="eye2" type="button" aria-label="Mostrar clave repetida">Ver</button>
+      </div>
+    </div>
+    <button class="go" id="go">Cifrar</button>
+  </div>
+
+  <div class="card" id="res">
+    <p class="msg" id="msg"></p>
+    <div class="out" id="out"></div>
+    <div class="bar">
+      <button class="ghost" id="cp">Copiar</button>
+      <button class="ghost" id="cl">Limpiar todo</button>
+    </div>
+  </div>
+
+  <p class="foot">AES-256-GCM con clave derivada de la clave que escribes (PBKDF2-SHA256, 310 000 iteraciones), sal e IV aleatorios en cada cifrado. AES es simétrico: la clave de descifrado debe ser exactamente la misma que usaste para cifrar. Si la olvidas, el texto no se puede recuperar.</p>
+</main>
+
+<script>
+(function(){
+  var $=function(i){return document.getElementById(i)};
+  var mode="E",enc=new TextEncoder(),dec=new TextDecoder();
+  var ITER=310000;
+
+  function b64(buf){var s="",a=new Uint8Array(buf);for(var i=0;i<a.length;i+=8192)s+=String.fromCharCode.apply(null,a.subarray(i,i+8192));return btoa(s)}
+  function unb64(t){var s=atob(t.replace(/\s+/g,"")),a=new Uint8Array(s.length);for(var i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a}
+
+  async function key(pw,salt){
+    var base=await crypto.subtle.importKey("raw",enc.encode(pw),"PBKDF2",false,["deriveKey"]);
+    return crypto.subtle.deriveKey({name:"PBKDF2",salt:salt,iterations:ITER,hash:"SHA-256"},base,{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+  }
+  async function encrypt(text,pw){
+    var salt=crypto.getRandomValues(new Uint8Array(16)),iv=crypto.getRandomValues(new Uint8Array(12));
+    var k=await key(pw,salt);
+    var ct=new Uint8Array(await crypto.subtle.encrypt({name:"AES-GCM",iv:iv},k,enc.encode(text)));
+    var all=new Uint8Array(1+16+12+ct.length);
+    all[0]=1;all.set(salt,1);all.set(iv,17);all.set(ct,29);
+    return b64(all);
+  }
+  async function decrypt(token,pw){
+    var all=unb64(token);
+    if(all.length<46||all[0]!==1)throw new Error("fmt");
+    var k=await key(pw,all.slice(1,17));
+    var pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:all.slice(17,29)},k,all.slice(29));
+    return dec.decode(pt);
+  }
+
+  function setMode(m){
+    mode=m;
+    $("tE").setAttribute("aria-selected",m==="E");
+    $("tD").setAttribute("aria-selected",m==="D");
+    $("lblIn").textContent=m==="E"?"Texto a cifrar":"Texto cifrado";
+    $("inp").placeholder=m==="E"?"Escribe o pega el texto aquí":"Pega aquí el texto cifrado";
+    $("go").textContent=m==="E"?"Cifrar":"Descifrar";
+    $("lblPw").textContent=m==="E"?"Clave de cifrado":"Clave de descifrado";
+    $("f2").style.display=m==="E"?"":"none";
+    $("pw2").value="";
+    $("res").style.display="none";
+  }
+  $("tE").onclick=function(){setMode("E")};
+  $("tD").onclick=function(){setMode("D")};
+
+  $("eye").onclick=function(){
+    var show=$("pw").type==="password";
+    $("pw").type=show?"text":"password";
+    this.textContent=show?"Ocultar":"Ver";
+  };
+  $("eye2").onclick=function(){
+    var show=$("pw2").type==="password";
+    $("pw2").type=show?"text":"password";
+    this.textContent=show?"Ocultar":"Ver";
+  };
+
+  $("pw").oninput=function(){
+    var p=this.value,s=0;
+    if(p.length>=8)s++;if(p.length>=12)s++;if(p.length>=16)s++;
+    if(/[a-z]/.test(p)&&/[A-Z]/.test(p))s++;
+    if(/\d/.test(p)&&/[^A-Za-z0-9]/.test(p))s++;
+    var cols=["var(--bad)","var(--bad)","#d98a00","#d98a00","var(--ok)","var(--ok)"];
+    var txt=["","Débil","Débil","Aceptable","Buena","Muy fuerte"];
+    var i=p?s:0;
+    $("mt").firstElementChild.style.width=(i*20)+"%";
+    $("mt").firstElementChild.style.background=cols[i];
+    $("hint").textContent=p?txt[i]:"";
+  };
+
+  function show(ok,msg,text){
+    $("res").style.display="block";
+    $("msg").textContent=msg;
+    $("msg").className="msg "+(ok?"ok":"err");
+    $("out").textContent=text||"";
+    $("out").style.display=text?"block":"none";
+    $("cp").style.display=text?"":"none";
+    $("res").scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+
+  $("go").onclick=async function(){
+    var t=$("inp").value,p=$("pw").value;
+    if(!t.trim())return show(false,mode==="E"?"Escribe el texto que quieres cifrar.":"Pega el texto cifrado.");
+    if(p.length<8)return show(false,(mode==="E"?"La clave de cifrado":"La clave de descifrado")+" debe tener al menos 8 caracteres.");
+    if(mode==="E"&&$("pw2").value!==p)return show(false,"Las dos claves de cifrado no coinciden.");
+    if(!(window.crypto&&crypto.subtle))return show(false,"Este navegador no admite cifrado seguro. Abre la app en HTTPS.");
+    var b=this;b.disabled=true;var old=b.textContent;b.textContent="Procesando…";
+    try{
+      if(mode==="E")show(true,"Texto cifrado",await encrypt(t,p));
+      else show(true,"Texto descifrado",await decrypt(t.trim(),p));
+    }catch(e){
+      show(false,mode==="E"?"No se pudo cifrar.":"No se pudo descifrar. Revisa la contraseña y que el texto esté completo.");
+    }
+    b.disabled=false;b.textContent=old;
+  };
+
+  $("cp").onclick=async function(){
+    var t=$("out").textContent,b=this;
+    try{await navigator.clipboard.writeText(t)}catch(e){
+      var r=document.createRange();r.selectNodeContents($("out"));
+      var s=getSelection();s.removeAllRanges();s.addRange(r);
+      try{document.execCommand("copy")}catch(_){}
+    }
+    b.textContent="Copiado";setTimeout(function(){b.textContent="Copiar"},1500);
+  };
+
+  $("cl").onclick=function(){
+    $("inp").value="";$("pw").value="";$("pw2").value="";$("pw").oninput();
+    $("res").style.display="none";$("out").textContent="";
+  };
+})();
+</script>
+</body>
+</html>
